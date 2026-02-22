@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_USER: myuser
+      POSTGRES_DB: Project1
+      TZ: UTC
+      PGTZ: UTC
+    command: postgres -c timezone=UTC
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_project_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_project_data:
