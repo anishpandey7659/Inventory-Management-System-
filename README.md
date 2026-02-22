@@ -56,27 +56,6 @@ To enhance usability, the system also includes a **chatbot** that allows users t
 
 ---
 
-## ⭐ Chatbot Feature (Added to Improve UX)
-
-The chatbot helps users perform inventory tasks using text commands.  
-It provides quick answers and supports the following:
-
-- Check product stock  
-  Example: “How many iPhones are available?”
-
-- Low stock alert  
-  Example: “Show low stock products”
-
-- Add stock using chat  
-  Example: “Add 20 units of Product A”
-
-- Generate reports  
-  Example: “Show stock report for this month”
-
-- Supplier details  
-  Example: “Show details of Supplier X”
-
----
 
 ## 🧱 Technology Stack
 
