@@ -80,13 +80,46 @@ export const usePost = (apiFunc) => {
 import { getCategories,getSuppliers } from "../services/ApiService";
 
 export const useCategories = () => {
-  return useFetch(getCategories);
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const data = await getCategories();
+                setCategories(data.data);
+            } catch (err) {
+                setError(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchCategories();
+    }, []);
+    return { categories, loading, error };
 };
 
+
+
 export const useSuppilier =()=>{
-  return useFetch(getSuppliers);
-}
+    const [suppliers, setSuppliers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-
-// import { getProducts } from "./Apiservice";
+    useEffect(() => {
+        const fetchSupplier= async () => {
+            try {
+                const data = await getSuppliers();
+                setSuppliers(data.data);
+            } catch (err) {
+                setError(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSupplier();
+    }, []);
+    return { suppliers, loading, error };
+};
 

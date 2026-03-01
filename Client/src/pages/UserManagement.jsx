@@ -41,7 +41,7 @@ useEffect(() => {
 if (loading) return <div>Loading team data...</div>;
 if (error) return <div>Error: {error}</div>;
 
-console.log('LOlo: ',teamData);
+// console.log('LOlo: ',teamData);
 
 const formatDate = (dateString) => {
   const date = new Date(dateString);

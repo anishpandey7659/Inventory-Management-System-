@@ -5,7 +5,7 @@ import { useFetch } from "../../hooks/UseHook";
 import { useState } from "react";
 
 // Stockin
-export default function StockInPage({isOpen, onClose,head}) {
+export default function StockInPage({isOpen, onClose,head,categories,suppliers}) {
   const [name,setName]=useState('');
   const [product, setproduct] = useState("");
   const [Supplier, setSupplier] = useState("");
@@ -15,7 +15,6 @@ export default function StockInPage({isOpen, onClose,head}) {
   const [successMsg,setSuccessMsg]=useState('')
   const [errorMsg,setErrorMsg]=useState('')
   const [showCreateProduct,setshowCreateProduct]=useState(false)
-  const { data: suppliers, loadingSup, errorSup  } =useSuppilier();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [selectedProduct, setSelectedProduct] = useState(null);

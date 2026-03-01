@@ -1,16 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { createProduct,updateProduct } from "../../services/ApiService";
+import { createProduct,updateProduct,getCategories } from "../../services/ApiService";
 import { useCategories,useSuppilier } from "../../hooks/UseHook";
 
 import { CreateCategoryModal } from "./CreateCategory"
 import { CreateSupplierModal } from "./CreateSupplier"
 
 
-const AddProductModal = ({ isOpen, onClose, head, mode = "add", product = null }) => {
-  const { data: suppliers, loadingSup, errorSup  } =useSuppilier();
-  const { data: categories, loading, error } = useCategories();
-  console.log("Start categories: ",categories);
-
+const AddProductModal = ({ isOpen, onClose, head, mode = "add", product = null ,categories,suppliers}) => {
 
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -77,12 +73,6 @@ const AddProductModal = ({ isOpen, onClose, head, mode = "add", product = null }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // if (!supplier || !category) {
-    //   setErrorMsg("Please select supplier and category");
-    //   return;
-    // }
-
     const productData = {
       product_name: name,
       selling_price: SP,

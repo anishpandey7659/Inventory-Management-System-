@@ -1,160 +1,135 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Package, AlertTriangle, XCircle, Plus, Download, Upload, Scan, FileText, RefreshCw } from 'lucide-react';
-import { getsales, total_revenue, getProducts,products_grouped_by_category } from '../services/ApiService';
-import { data, Link } from 'react-router-dom';
+import { getsales, total_revenue, getProducts, products_grouped_by_category } from '../services/Apiservice';
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const [Total_Revenue, setTotalRevenue] = useState(0);
   const [Bill, setBill] = useState(0);
   const [Product, setProduct] = useState(0);
-  const [Productdetail, setProductdetail] = useState(0);
-  const [data, setData] = useState(null);
   const [categoryStats, setCategoryStats] = useState([]);
-  const [status,setstatus] =useState([]) 
-  const statuses = ["low_stock", "out_stock", "in_stock"];
+  const [status, setstatus] = useState({});
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        // ✅ All 6 calls run in parallel
+        const [res, resbill, lowRes, outRes, inRes, categoryRes] = await Promise.all([
+          total_revenue(),
+          getsales(),
+          getProducts({ status: 'low_stock' }),
+          getProducts({ status: 'out_stock' }),
+          getProducts({ status: 'in_stock' }),
+          products_grouped_by_category(),
+        ]);
 
+        setTotalRevenue(res.data.total_revenue);
+        setBill(resbill.data.count);
 
-useEffect(() => {
-  const fetchRevenue = async () => {
-    try {
-      const res = await total_revenue();
-      const resbill = await getsales();
-      const productRes = await getProducts();
-      const results = await Promise.all(
-      statuses.map(status => getProducts({ status }))
-      );
+        setstatus({
+          low_stock: lowRes.data,
+          out_stock: outRes.data,
+          in_stock: inRes.data,
+        });
 
-      setTotalRevenue(res.data.total_revenue);
-      setBill(resbill.data.count);
-      setProduct(productRes.data.count);
-      setstatus({
-        low_stock: results[0].data,   // ✅ extract data here
-        out_stock: results[1].data,
-        in_stock: results[2].data,
-      });
-      setProductdetail(productRes.data.results);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+        setProduct(inRes.data.count + lowRes.data.count + outRes.data.count);
 
-  const loadData = async () => {
-    try {
-      const res = await products_grouped_by_category();
-      const groupedData = res.data;
-      setData(groupedData);
-
-      // 🔢 Convert to array with percentage
-      const counts = Object.entries(groupedData).map(
-        ([category, items]) => ({
+        // Category stats
+        const groupedData = categoryRes.data;
+        const counts = Object.entries(groupedData).map(([category, items]) => ({
           category,
           count: items.length,
-        })
-      );
+        }));
+        const total = counts.reduce((sum, item) => sum + item.count, 0);
+        const stats = counts
+          .map(item => ({
+            ...item,
+            percentage: total ? Number(((item.count / total) * 100).toFixed(1)) : 0,
+          }))
+          .sort((a, b) => b.percentage - a.percentage);
 
-      const total = counts.reduce(
-        (sum, item) => sum + item.count,
-        0
-      );
+        setCategoryStats(stats);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      const stats = counts.map(item => ({
-        ...item,
-        percentage: total
-          ? Number(((item.count / total) * 100).toFixed(1))
-          : 0,
-      }));
-      
-      stats.sort((a, b) => b.percentage - a.percentage);
+    fetchAll();
+  }, []);
 
-      setCategoryStats(stats);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // ✅ Single loading gate
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500 text-lg">Loading dashboard...</p>
+      </div>
+    );
+  }
 
-  fetchRevenue();
-  loadData();
-}, []);
-if (!status.low_stock || !status.out_stock || !status.in_stock) {
-  return <p>Loading stock data...</p>;
-}
+  // ✅ Derive alerts from status
+  const lowStockAlerts = status.low_stock?.results?.map(item => ({
+    name: item.product_name,
+    sku: `SKU-${item.sku}`,
+    quantity: item.quantity,
+    status: 'low',
+  })) || [];
 
+  const outStockAlerts = status.out_stock?.results?.map(item => ({
+    name: item.product_name,
+    sku: `SKU-${item.sku}`,
+    quantity: item.quantity,
+    status: 'out',
+  })) || [];
 
-const lowStockAlerts = status.low_stock.results.map(item => ({
-  name: item.product_name,
-  sku: `SKU-${item.sku}`,  
-  quantity: item.quantity,
-  status: 'low'
-}));
+  const stockAlerts = [...outStockAlerts, ...lowStockAlerts];
 
+  // ✅ Product table uses all results combined (no extra API call)
+  const allProducts = [
+    ...(status.in_stock?.results || []),
+    ...(status.low_stock?.results || []),
+    ...(status.out_stock?.results || []),
+  ].map(item => ({
+    name: item.product_name,
+    sku: item.sku,
+    category: item.category?.name,
+    quantity: item.quantity,
+    price: item.selling_price,
+    status: item.quantity > 10 ? 'in' : item.quantity > 0 ? 'low' : 'out',
+  }));
 
-const outStockAlerts = status.out_stock.results.map(item => ({
-  name: item.product_name,
-  sku: `SKU-${item.sku}`,
-  quantity: item.quantity,
-  status: 'out'
-}));
+  const palette = [
+    "#3b82f6", "#10b981", "#f59e0b",
+    "#8b5cf6", "#ef4444", "#06b6d4",
+    "#f97316", "#a855f7", "#22c55e"
+  ];
 
-// console.log("Ths is outstock: ",outStockAlerts);
+  const categoryData = categoryStats.map((item, idx) => ({
+    name: item.category,
+    value: item.count,
+    percentage: item.percentage,
+    color: palette[idx % palette.length],
+  }));
 
-const stockAlerts = [ ...outStockAlerts,...lowStockAlerts];
-
-
-
-const palette = [
-  "#3b82f6", "#10b981", "#f59e0b",
-  "#8b5cf6", "#ef4444", "#06b6d4",
-  "#f97316", "#a855f7", "#22c55e"
-];
-
-
-// Inventory by category
-const getColorFromPalette = (index) => palette[index % palette.length];
-const categoryData = categoryStats.map((item, idx) => ({
-  name: item.category,
-  value: item.count,
-  percentage: item.percentage,
-  color: getColorFromPalette(idx),
-}));
-
-
-
-  // Stock movement trend data
   const stockMovementData = [
     { month: 'Aug', added: 1200, sold: 950 },
     { month: 'Sep', added: 1400, sold: 1100 },
     { month: 'Oct', added: 1150, sold: 1250 },
     { month: 'Nov', added: 1600, sold: 1350 },
     { month: 'Dec', added: 1800, sold: 1650 },
-    { month: 'Jan', added: 1350, sold: 1300 }
+    { month: 'Jan', added: 1350, sold: 1300 },
   ];
 
-  
-
-
-  // Recent stock movements
   const recentMovements = [
     { id: 1, product: 'Wireless Mouse', code: 'PO-2024-001', change: '+50 units', date: '2024-01-15 09:30', type: 'in' },
     { id: 2, product: 'USB-C Cable', code: 'SO-2024-089', change: '-25 units', date: '2024-01-15 11:45', type: 'out' },
     { id: 3, product: 'Office Chair', code: 'PO-2024-002', change: '+10 units', date: '2024-01-14 14:20', type: 'in' },
     { id: 4, product: 'Monitor 27"', code: 'SO-2024-090', change: '-5 units', date: '2024-01-14 16:00', type: 'out' },
-    { id: 5, product: 'Notebook A5', code: 'PO-2024-003', change: '+100 units', date: '2024-01-13 10:15', type: 'in' }
+    { id: 5, product: 'Notebook A5', code: 'PO-2024-003', change: '+100 units', date: '2024-01-13 10:15', type: 'in' },
   ];
-  const test =Productdetail.map((item)=>({
-    name:item.product_name,
-    sku:item.sku,
-    category:item.category.name,
-    quantity:item.quantity,
-    price:item.selling_price,
-    status:item.quantity > 10
-            ? "in"
-            : item.quantity > 0
-            ? "low"
-            : "out",
-  }
-  ));
 
   const StatCard = ({ title, value, icon: Icon, trend, trendValue, color, bgColor, subtitle }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -185,6 +160,7 @@ const categoryData = categoryStats.map((item, idx) => ({
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
@@ -213,7 +189,7 @@ const categoryData = categoryStats.map((item, idx) => ({
           />
           <StatCard
             title="Low Stock Items"
-            value={status.low_stock.count}
+            value={status.low_stock?.count || 0}
             icon={AlertTriangle}
             color="text-orange-600"
             bgColor="bg-yellow-100"
@@ -221,7 +197,7 @@ const categoryData = categoryStats.map((item, idx) => ({
           />
           <StatCard
             title="Out of Stock"
-            value={status.out_stock.count}
+            value={status.out_stock?.count || 0}
             icon={XCircle}
             color="text-red-600"
             bgColor="bg-red-100"
@@ -231,6 +207,7 @@ const categoryData = categoryStats.map((item, idx) => ({
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
           {/* Stock Movement Trend */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="mb-6">
@@ -240,20 +217,18 @@ const categoryData = categoryStats.map((item, idx) => ({
               <AreaChart data={stockMovementData}>
                 <defs>
                   <linearGradient id="colorAdded" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorSold" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" stroke="#6b7280" />
                 <YAxis stroke="#6b7280" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
                 <Legend />
                 <Area type="monotone" dataKey="added" stroke="#10b981" fillOpacity={1} fill="url(#colorAdded)" name="Added" />
                 <Area type="monotone" dataKey="sold" stroke="#3b82f6" fillOpacity={1} fill="url(#colorSold)" name="Sold/Used" />
@@ -266,15 +241,7 @@ const categoryData = categoryStats.map((item, idx) => ({
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Inventory by Category</h2>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
+                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
                   {categoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -288,7 +255,7 @@ const categoryData = categoryStats.map((item, idx) => ({
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
                     <span className="text-gray-700">{item.name}</span>
                   </div>
-                  <span className="font-semibold text-gray-900">{item.value}%</span>
+                  <span className="font-semibold text-gray-900">{item.percentage}%</span>
                 </div>
               ))}
             </div>
@@ -297,33 +264,28 @@ const categoryData = categoryStats.map((item, idx) => ({
 
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
           {/* Quick Actions */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-3">
               <Link to='/inventory' className="flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-3 font-medium hover:bg-blue-700 transition-colors">
-                <Plus className="w-5 h-5" />
-                Add Product
+                <Plus className="w-5 h-5" /> Add Product
               </Link>
               <Link to='/inventory' className="flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg px-4 py-3 font-medium hover:bg-green-700 transition-colors">
-                <Download className="w-5 h-5" />
-                Stock In
+                <Download className="w-5 h-5" /> Stock In
               </Link>
               <Link to='/billing' className="flex items-center justify-center gap-2 bg-orange-600 text-white rounded-lg px-4 py-3 font-medium hover:bg-orange-700 transition-colors">
-                <Upload className="w-5 h-5" />
-                Stock Out
+                <Upload className="w-5 h-5" /> Stock Out
               </Link>
               <button className="flex items-center justify-center gap-2 bg-purple-600 text-white rounded-lg px-4 py-3 font-medium hover:bg-purple-700 transition-colors">
-                <Scan className="w-5 h-5" />
-                Scan Item
+                <Scan className="w-5 h-5" /> Scan Item
               </button>
               <button className="flex items-center justify-center gap-2 bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 transition-colors">
-                <FileText className="w-5 h-5" />
-                Generate Report
+                <FileText className="w-5 h-5" /> Generate Report
               </button>
               <button className="flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-lg px-4 py-3 font-medium hover:bg-indigo-700 transition-colors">
-                <RefreshCw className="w-5 h-5" />
-                Sync Data
+                <RefreshCw className="w-5 h-5" /> Sync Data
               </button>
             </div>
           </div>
@@ -350,7 +312,6 @@ const categoryData = categoryStats.map((item, idx) => ({
                     <p className={`text-lg font-bold ${item.status === 'out' ? 'text-red-600' : 'text-orange-600'}`}>
                       {item.quantity} left
                     </p>
-                    {/* <p className="text-sm text-gray-500">Min: {item.min}</p> */}
                   </div>
                 </div>
               ))}
@@ -363,6 +324,7 @@ const categoryData = categoryStats.map((item, idx) => ({
 
         {/* Recent Stock Movements & Product Inventory */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
           {/* Recent Stock Movements */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -373,11 +335,10 @@ const categoryData = categoryStats.map((item, idx) => ({
               {recentMovements.map((movement) => (
                 <div key={movement.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
                   <div className={`p-2 rounded-lg ${movement.type === 'in' ? 'bg-green-100' : 'bg-red-100'}`}>
-                    {movement.type === 'in' ? (
-                      <TrendingDown className="w-5 h-5 text-green-600 rotate-180" />
-                    ) : (
-                      <TrendingUp className="w-5 h-5 text-red-600 rotate-180" />
-                    )}
+                    {movement.type === 'in'
+                      ? <TrendingDown className="w-5 h-5 text-green-600 rotate-180" />
+                      : <TrendingUp className="w-5 h-5 text-red-600 rotate-180" />
+                    }
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{movement.product}</p>
@@ -392,13 +353,12 @@ const categoryData = categoryStats.map((item, idx) => ({
             </div>
           </div>
 
-          {/* Product Inventory */}
+          {/* Product Inventory Table */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Product Inventory</h2>
               <Link to='/inventory' className="flex items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-2 font-medium hover:bg-blue-700 transition-colors">
-                <Plus className="w-4 h-4" />
-                Add Product
+                <Plus className="w-4 h-4" /> Add Product
               </Link>
             </div>
             <div className="overflow-x-auto">
@@ -414,17 +374,14 @@ const categoryData = categoryStats.map((item, idx) => ({
                   </tr>
                 </thead>
                 <tbody>
-                  {test.map((product, index) => (
+                  {allProducts.map((product, index) => (
                     <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-2 text-sm font-medium text-gray-900">{product.name}</td>
                       <td className="py-3 px-2 text-sm text-gray-600">{product.sku}</td>
                       <td className="py-3 px-2 text-sm text-gray-600">{product.category}</td>
                       <td className="py-3 px-2">
-                        <span className="text-sm ">
-                          <span className={`font-semibold ${product.status === 'out' ? 'text-red-600' : product.status === 'low' ? 'text-orange-600' : 'text-gray-900'}`}>
-                            {product.quantity}
-                          </span>
-                          {/* <span className="text-gray-400"> / {product.min} min</span> */}
+                        <span className={`font-semibold text-sm ${product.status === 'out' ? 'text-red-600' : product.status === 'low' ? 'text-orange-600' : 'text-gray-900'}`}>
+                          {product.quantity}
                         </span>
                       </td>
                       <td className="py-3 px-2 text-sm font-medium text-gray-900">${product.price}</td>
@@ -444,6 +401,7 @@ const categoryData = categoryStats.map((item, idx) => ({
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
