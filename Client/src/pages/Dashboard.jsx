@@ -1,68 +1,108 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Package, AlertTriangle, XCircle, Plus, Download, Upload, Scan, FileText, RefreshCw } from 'lucide-react';
 import { getsales, total_revenue, getProducts, products_grouped_by_category } from '../services/Apiservice';
 import { Link } from 'react-router-dom';
 
+// ✅ Query keys as constants — easy to invalidate from other pages
+export const DASHBOARD_QUERY_KEY = 'dashboard';
+
+const palette = [
+  "#3b82f6", "#10b981", "#f59e0b",
+  "#8b5cf6", "#ef4444", "#06b6d4",
+  "#f97316", "#a855f7", "#22c55e"
+];
+
+const stockMovementData = [
+  { month: 'Aug', added: 1200, sold: 950 },
+  { month: 'Sep', added: 1400, sold: 1100 },
+  { month: 'Oct', added: 1150, sold: 1250 },
+  { month: 'Nov', added: 1600, sold: 1350 },
+  { month: 'Dec', added: 1800, sold: 1650 },
+  { month: 'Jan', added: 1350, sold: 1300 },
+];
+
+const recentMovements = [
+  { id: 1, product: 'Wireless Mouse', code: 'PO-2024-001', change: '+50 units', date: '2024-01-15 09:30', type: 'in' },
+  { id: 2, product: 'USB-C Cable', code: 'SO-2024-089', change: '-25 units', date: '2024-01-15 11:45', type: 'out' },
+  { id: 3, product: 'Office Chair', code: 'PO-2024-002', change: '+10 units', date: '2024-01-14 14:20', type: 'in' },
+  { id: 4, product: 'Monitor 27"', code: 'SO-2024-090', change: '-5 units', date: '2024-01-14 16:00', type: 'out' },
+  { id: 5, product: 'Notebook A5', code: 'PO-2024-003', change: '+100 units', date: '2024-01-13 10:15', type: 'in' },
+];
+
+// ✅ Single fetcher — all 6 calls in parallel, result cached together
+const fetchDashboardData = async () => {
+  const [res, resbill, lowRes, outRes, inRes, categoryRes] = await Promise.all([
+    total_revenue(),
+    getsales(),
+    getProducts({ status: 'low_stock' }),
+    getProducts({ status: 'out_stock' }),
+    getProducts({ status: 'in_stock' }),
+    products_grouped_by_category(),
+  ]);
+
+  const groupedData = categoryRes.data;
+  const counts = Object.entries(groupedData).map(([category, items]) => ({
+    category,
+    count: items.length,
+  }));
+  const total = counts.reduce((sum, item) => sum + item.count, 0);
+  const categoryStats = counts
+    .map((item, idx) => ({
+      name: item.category,
+      value: item.count,
+      percentage: total ? Number(((item.count / total) * 100).toFixed(1)) : 0,
+      color: palette[idx % palette.length],
+    }))
+    .sort((a, b) => b.percentage - a.percentage);
+
+  return {
+    totalRevenue: res.data.total_revenue,
+    billCount: resbill.data.count,
+    lowStock: lowRes.data,
+    outStock: outRes.data,
+    inStock: inRes.data,
+    categoryStats,
+  };
+};
+
+const StatCard = ({ title, value, icon: Icon, trend, trendValue, color, bgColor, subtitle }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div className="flex items-start justify-between mb-3">
+      <div>
+        <h3 className="text-gray-600 text-sm font-medium mb-1">{title}</h3>
+        <p className="text-3xl font-bold text-gray-900">{value}</p>
+        {trend && (
+          <div className={`flex items-center gap-1 text-sm font-medium mt-2 ${trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-orange-600'}`}>
+            {trend === 'up' && <TrendingUp className="w-4 h-4" />}
+            {trend === 'down' && <TrendingDown className="w-4 h-4" />}
+            {trendValue}
+          </div>
+        )}
+        {subtitle && (
+          <p className={`text-sm font-medium mt-2 ${subtitle.includes('Critical') ? 'text-red-600' : 'text-orange-600'}`}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <div className={`p-3 rounded-xl ${bgColor}`}>
+        <Icon className={`w-6 h-6 ${color}`} />
+      </div>
+    </div>
+  </div>
+);
+
 const Dashboard = () => {
-  const [Total_Revenue, setTotalRevenue] = useState(0);
-  const [Bill, setBill] = useState(0);
-  const [Product, setProduct] = useState(0);
-  const [categoryStats, setCategoryStats] = useState([]);
-  const [status, setstatus] = useState({});
-  const [loading, setLoading] = useState(true);
+  // ✅ Single useQuery replaces all useState + useEffect + setLoading
+  const { data, isLoading, isError } = useQuery({
+    queryKey: [DASHBOARD_QUERY_KEY],
+    queryFn: fetchDashboardData,
+    staleTime: 1000 * 60 * 5,   // ✅ Fresh for 5 min — dashboard doesn't need constant refetching
+    cacheTime: 1000 * 60 * 15,  // ✅ Keep in cache for 15 min
+  });
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        // ✅ All 6 calls run in parallel
-        const [res, resbill, lowRes, outRes, inRes, categoryRes] = await Promise.all([
-          total_revenue(),
-          getsales(),
-          getProducts({ status: 'low_stock' }),
-          getProducts({ status: 'out_stock' }),
-          getProducts({ status: 'in_stock' }),
-          products_grouped_by_category(),
-        ]);
-
-        setTotalRevenue(res.data.total_revenue);
-        setBill(resbill.data.count);
-
-        setstatus({
-          low_stock: lowRes.data,
-          out_stock: outRes.data,
-          in_stock: inRes.data,
-        });
-
-        setProduct(inRes.data.count + lowRes.data.count + outRes.data.count);
-
-        // Category stats
-        const groupedData = categoryRes.data;
-        const counts = Object.entries(groupedData).map(([category, items]) => ({
-          category,
-          count: items.length,
-        }));
-        const total = counts.reduce((sum, item) => sum + item.count, 0);
-        const stats = counts
-          .map(item => ({
-            ...item,
-            percentage: total ? Number(((item.count / total) * 100).toFixed(1)) : 0,
-          }))
-          .sort((a, b) => b.percentage - a.percentage);
-
-        setCategoryStats(stats);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, []);
-
-  // ✅ Single loading gate
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-500 text-lg">Loading dashboard...</p>
@@ -70,15 +110,26 @@ const Dashboard = () => {
     );
   }
 
-  // ✅ Derive alerts from status
-  const lowStockAlerts = status.low_stock?.results?.map(item => ({
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-red-500 text-lg">Failed to load dashboard. Please refresh.</p>
+      </div>
+    );
+  }
+
+  const { totalRevenue, lowStock, outStock, inStock, categoryStats } = data;
+
+  const totalProduct = (inStock?.count || 0) + (lowStock?.count || 0) + (outStock?.count || 0);
+
+  const lowStockAlerts = lowStock?.results?.map(item => ({
     name: item.product_name,
     sku: `SKU-${item.sku}`,
     quantity: item.quantity,
     status: 'low',
   })) || [];
 
-  const outStockAlerts = status.out_stock?.results?.map(item => ({
+  const outStockAlerts = outStock?.results?.map(item => ({
     name: item.product_name,
     sku: `SKU-${item.sku}`,
     quantity: item.quantity,
@@ -87,11 +138,10 @@ const Dashboard = () => {
 
   const stockAlerts = [...outStockAlerts, ...lowStockAlerts];
 
-  // ✅ Product table uses all results combined (no extra API call)
   const allProducts = [
-    ...(status.in_stock?.results || []),
-    ...(status.low_stock?.results || []),
-    ...(status.out_stock?.results || []),
+    ...(inStock?.results || []),
+    ...(lowStock?.results || []),
+    ...(outStock?.results || []),
   ].map(item => ({
     name: item.product_name,
     sku: item.sku,
@@ -100,62 +150,6 @@ const Dashboard = () => {
     price: item.selling_price,
     status: item.quantity > 10 ? 'in' : item.quantity > 0 ? 'low' : 'out',
   }));
-
-  const palette = [
-    "#3b82f6", "#10b981", "#f59e0b",
-    "#8b5cf6", "#ef4444", "#06b6d4",
-    "#f97316", "#a855f7", "#22c55e"
-  ];
-
-  const categoryData = categoryStats.map((item, idx) => ({
-    name: item.category,
-    value: item.count,
-    percentage: item.percentage,
-    color: palette[idx % palette.length],
-  }));
-
-  const stockMovementData = [
-    { month: 'Aug', added: 1200, sold: 950 },
-    { month: 'Sep', added: 1400, sold: 1100 },
-    { month: 'Oct', added: 1150, sold: 1250 },
-    { month: 'Nov', added: 1600, sold: 1350 },
-    { month: 'Dec', added: 1800, sold: 1650 },
-    { month: 'Jan', added: 1350, sold: 1300 },
-  ];
-
-  const recentMovements = [
-    { id: 1, product: 'Wireless Mouse', code: 'PO-2024-001', change: '+50 units', date: '2024-01-15 09:30', type: 'in' },
-    { id: 2, product: 'USB-C Cable', code: 'SO-2024-089', change: '-25 units', date: '2024-01-15 11:45', type: 'out' },
-    { id: 3, product: 'Office Chair', code: 'PO-2024-002', change: '+10 units', date: '2024-01-14 14:20', type: 'in' },
-    { id: 4, product: 'Monitor 27"', code: 'SO-2024-090', change: '-5 units', date: '2024-01-14 16:00', type: 'out' },
-    { id: 5, product: 'Notebook A5', code: 'PO-2024-003', change: '+100 units', date: '2024-01-13 10:15', type: 'in' },
-  ];
-
-  const StatCard = ({ title, value, icon: Icon, trend, trendValue, color, bgColor, subtitle }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h3 className="text-gray-600 text-sm font-medium mb-1">{title}</h3>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-          {trend && (
-            <div className={`flex items-center gap-1 text-sm font-medium mt-2 ${trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-orange-600'}`}>
-              {trend === 'up' && <TrendingUp className="w-4 h-4" />}
-              {trend === 'down' && <TrendingDown className="w-4 h-4" />}
-              {trendValue}
-            </div>
-          )}
-          {subtitle && (
-            <p className={`text-sm font-medium mt-2 ${subtitle.includes('Critical') ? 'text-red-600' : 'text-orange-600'}`}>
-              {subtitle}
-            </p>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${bgColor}`}>
-          <Icon className={`w-6 h-6 ${color}`} />
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -171,7 +165,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Products"
-            value={Product}
+            value={totalProduct}
             icon={Package}
             trend="up"
             trendValue="+12% from last month"
@@ -180,7 +174,7 @@ const Dashboard = () => {
           />
           <StatCard
             title="Inventory Value"
-            value={`$${Total_Revenue}`}
+            value={`$${totalRevenue}`}
             icon={DollarSign}
             trend="up"
             trendValue="+8.2% from last month"
@@ -189,7 +183,7 @@ const Dashboard = () => {
           />
           <StatCard
             title="Low Stock Items"
-            value={status.low_stock?.count || 0}
+            value={lowStock?.count || 0}
             icon={AlertTriangle}
             color="text-orange-600"
             bgColor="bg-yellow-100"
@@ -197,7 +191,7 @@ const Dashboard = () => {
           />
           <StatCard
             title="Out of Stock"
-            value={status.out_stock?.count || 0}
+            value={outStock?.count || 0}
             icon={XCircle}
             color="text-red-600"
             bgColor="bg-red-100"
@@ -207,8 +201,6 @@ const Dashboard = () => {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-          {/* Stock Movement Trend */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Stock Movement Trend</h2>
@@ -236,20 +228,19 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </div>
 
-          {/* Inventory by Category */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Inventory by Category</h2>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
-                  {categoryData.map((entry, index) => (
+                <Pie data={categoryStats} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value">
+                  {categoryStats.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
             <div className="mt-4 space-y-2">
-              {categoryData.map((item) => (
+              {categoryStats.map((item) => (
                 <div key={item.name} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
@@ -264,8 +255,6 @@ const Dashboard = () => {
 
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-          {/* Quick Actions */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -290,7 +279,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Stock Alerts */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
@@ -324,8 +312,6 @@ const Dashboard = () => {
 
         {/* Recent Stock Movements & Product Inventory */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* Recent Stock Movements */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Recent Stock Movements</h2>
@@ -353,7 +339,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Product Inventory Table */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Product Inventory</h2>

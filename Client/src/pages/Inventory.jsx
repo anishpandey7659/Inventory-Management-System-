@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AddProductModal from "../features/products/Addproduct";
 import { getProducts, deleteProduct } from "../services/Apiservice";
 import { buildFilterParams } from "../components/ui/Func";
 import { FilterModal } from "../components/ui/Filter";
 import { ActionMenu } from "../components/ui/ActionMenu";
-import { useFetch } from "../hooks/UseHook";
 import StockInPage from "../features/stock/StockIn";
-import { useCategories ,useSuppilier} from "../hooks/UseHook";
+import { useCategories, useSuppilier } from "../hooks/UseHook";
 
 const PAGE_SIZE = 10;
 
@@ -50,82 +50,100 @@ const getQuantityColor = (quantity) => {
 };
 
 const InventoryPage = () => {
+  const queryClient = useQueryClient();
+
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isStockInOpen, setIsStockInOpen] = useState(false);
-  const [inventoryData, setInventoryData] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isFetching, setIsFetching] = useState(false);
   const [activeFilters, setActiveFilters] = useState(defaultFilters);
   const [modalMode, setModalMode] = useState("add");
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const { categories } = useCategories();
+  const { suppliers } = useSuppilier();
+
+  // ✅ React Query: fetch + cache products by page + filters
+  const { data, isFetching } = useQuery({
+    queryKey: ["products", currentPage, activeFilters],
+    queryFn: async () => {
+      const params = buildFilterParams(activeFilters);
+      const response = await getProducts(params, currentPage);
+      const results = response.data.results || response.data;
+      return {
+        products: results.map(mapProduct),
+        totalCount: response.data.count || 0,
+      };
+    },
+    keepPreviousData: true, // ✅ Keeps old data visible while fetching next page
+    staleTime: 1000 * 60 * 2, // ✅ Cache considered fresh for 2 minutes
+  });
+
+  const inventoryData = data?.products || [];
+  const totalCount = data?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const start = (currentPage - 1) * PAGE_SIZE + 1;
   const end = Math.min(currentPage * PAGE_SIZE, totalCount);
-  const { categories, loading, error } = useCategories();
-  const { suppliers, loadingSup, errorSup } = useSuppilier();
-  
 
-  // ✅ Single fetch function handles both normal + filtered
-  const fetchInventory = useCallback(async (page = 1, filters = activeFilters) => {
-    setIsFetching(true);
-    try {
-      const params = buildFilterParams(filters);
-      const response = await getProducts(params, page);
-      const results = response.data.results || response.data;
-      setInventoryData(results.map(mapProduct));
-      setTotalCount(response.data.count || 0);
-    } catch (error) {
-      console.error("Fetch error:", error.response?.data || error.message);
-    } finally {
-      setIsFetching(false);
+  // ✅ Prefetch next page for snappy pagination
+  const prefetchNextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      queryClient.prefetchQuery({
+        queryKey: ["products", currentPage + 1, activeFilters],
+        queryFn: async () => {
+          const params = buildFilterParams(activeFilters);
+          const response = await getProducts(params, currentPage + 1);
+          const results = response.data.results || response.data;
+          return {
+            products: results.map(mapProduct),
+            totalCount: response.data.count || 0,
+          };
+        },
+        staleTime: 1000 * 60 * 2,
+      });
     }
-  }, [activeFilters]);
+  }, [currentPage, totalPages, activeFilters, queryClient]);
 
-  useEffect(() => {
-    fetchInventory(currentPage, activeFilters);
-  }, [currentPage]);
+  // ✅ Delete mutation with optimistic update
+  const deleteMutation = useMutation({
+    mutationFn: (itemId) => deleteProduct(itemId),
+    onMutate: async (itemId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["products", currentPage, activeFilters] });
 
-  // ✅ Client-side search on already loaded page data
-  const displayedProducts = inventoryData.filter((product) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      product.name.toLowerCase().includes(query) ||
-      product.sku.toLowerCase().includes(query)
-    );
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData(["products", currentPage, activeFilters]);
+
+      // Optimistically remove from cache
+      queryClient.setQueryData(["products", currentPage, activeFilters], (old) => ({
+        ...old,
+        products: old.products.filter((p) => p.id !== itemId),
+        totalCount: old.totalCount - 1,
+      }));
+
+      return { previousData };
+    },
+    onError: (_err, _itemId, context) => {
+      // Rollback on failure
+      queryClient.setQueryData(
+        ["products", currentPage, activeFilters],
+        context.previousData
+      );
+      alert("Failed to delete product");
+    },
+    onSettled: () => {
+      // Always refetch after mutation settles to sync with server
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
   });
-
-  const handleFilterApply = async (incomingFilters) => {
-    setActiveFilters(incomingFilters);
-    setCurrentPage(1);
-    await fetchInventory(1, incomingFilters);
-    setIsFilterOpen(false);
-  };
-
-  const clearFilters = () => {
-    setActiveFilters(defaultFilters);
-    setSearchQuery("");
-    setCurrentPage(1);
-    fetchInventory(1, defaultFilters);
-  };
 
   const handleDelete = async (itemId) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
-    try {
-      await deleteProduct(itemId);
-      // ✅ No need to refetch everything — just remove from state
-      setInventoryData((prev) => prev.filter((p) => p.id !== itemId));
-      setTotalCount((prev) => prev - 1);
-    } catch (error) {
-      console.error("Delete error:", error);
-      alert("Failed to delete product");
-    }
+    deleteMutation.mutate(itemId);
   };
 
   const handleEdit = (itemId) => {
-    // ✅ No extra API call — product already in state
     const product = inventoryData.find((p) => p.id === itemId);
     setSelectedProduct(product);
     setModalMode("edit");
@@ -135,10 +153,34 @@ const InventoryPage = () => {
   const handleModalClose = () => {
     setIsModalOpen(false);
     setSelectedProduct(null);
-    fetchInventory(currentPage); // refresh after add/edit
+    // ✅ Invalidate cache so fresh data is fetched after add/edit
+    queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 
-  // ✅ Smart pagination: don't show all pages if too many
+  const handleFilterApply = (incomingFilters) => {
+    setActiveFilters(incomingFilters);
+    setCurrentPage(1);
+    setIsFilterOpen(false);
+    // ✅ Invalidate old filter queries so new ones are fetched fresh
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  const clearFilters = () => {
+    setActiveFilters(defaultFilters);
+    setSearchQuery("");
+    setCurrentPage(1);
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
+  // ✅ Client-side search on current page data
+  const displayedProducts = inventoryData.filter((product) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(query) ||
+      product.sku.toLowerCase().includes(query)
+    );
+  });
+
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -198,7 +240,7 @@ const InventoryPage = () => {
             isOpen={isStockInOpen}
             onClose={() => {
               setIsStockInOpen(false);
-              fetchInventory(currentPage); // refresh after stock in
+              queryClient.invalidateQueries({ queryKey: ["products"] });
             }}
             head="Stock In"
             categories={categories}
@@ -313,6 +355,7 @@ const InventoryPage = () => {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
+                onMouseEnter={prefetchNextPage} // ✅ Prefetch on hover
                 className={`py-2 px-4 border border-gray-200 rounded-md text-sm font-medium ${
                   currentPage === page
                     ? "bg-blue-500 text-white border-blue-500"
@@ -326,6 +369,7 @@ const InventoryPage = () => {
             <button
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((p) => p + 1)}
+              onMouseEnter={prefetchNextPage} // ✅ Prefetch on hover
               className="py-2 px-4 bg-white border border-gray-200 rounded-md text-gray-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next

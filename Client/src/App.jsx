@@ -12,11 +12,23 @@ import Privateroute from "./routes/Privateroute";
 import SuppliersManagement from "./features/company/Suppliers management";
 import CompanyAccountForm from "./features/company/CompanyAccountForm";
 import UserManagement from "./pages/UserManagement";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2,   // 2 min — won't refetch if data is fresh
+      cacheTime: 1000 * 60 * 10,  // 10 min — keep in memory after unmount
+      keepPreviousData: true,      // no flicker when paginating
+    },
+  },
+});
 
 function App() {
   return (
     <>
-
+    <QueryClientProvider client={queryClient}>
       <Authprovider>
         <BrowserRouter>
           <Routes>
@@ -41,6 +53,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </Authprovider>
+  </QueryClientProvider>
     
     </>
   );

@@ -3,7 +3,6 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Link } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
 import { userdetail } from '../../services/ApiService';
-// import { userdetail } from '../../services/Apiservice';
 
 const Layout = ({ children }) => {
   const [activeItem, setActiveItem] = useState('Dashboard');
@@ -16,6 +15,7 @@ const Layout = ({ children }) => {
       const fetchUserDetail =async()=>{
         try{
           const response = await userdetail();
+          console.log("sucessfully: ",response.data);
           setProfileData(response.data)
         }catch(err){
           console.log(err);

@@ -77,8 +77,8 @@ const AddProductModal = ({ isOpen, onClose, head, mode = "add", product = null ,
       product_name: name,
       selling_price: SP,
       purchase_price: PP,
-      category: Number(category),
-      supplier: Number(supplier),
+      category_id: Number(category),
+      supplier_id: Number(supplier),
       quantity: Number(quantity),
       sku: sku,
     };
@@ -92,17 +92,19 @@ const AddProductModal = ({ isOpen, onClose, head, mode = "add", product = null ,
         setSuccessMsg("Product created successfully!");
       }
 
-      setTimeout(() => {
-        resetForm();
-        onClose();
-      }, 1200);
+      setTimeout(() => {resetForm(); onClose();}, 1200);
 
     } catch (err) {
       const errors = err.response?.data;
-      let errorText = "Something went wrong.";
-      console.log(err.response.data)
-      setErrorMsg(err.response.data);
-    }
+      if (errors && typeof errors === "object") {
+        const messages = Object.entries(errors)
+          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
+          .join(" | ");
+        setErrorMsg(messages);           
+      }else {
+        setErrorMsg("Something went wrong.");
+      }
+  }
   };
 
   if (!isOpen) return null;

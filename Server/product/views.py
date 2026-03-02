@@ -28,7 +28,9 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         status = self.request.query_params.get("status")
 
-        qs = Product.objects.annotate(
+        qs = Product.objects.select_related(
+            "category", "supplier"
+        ).annotate(
             stock_status=Case(
                 When(quantity=0, then=Value("out_stock")),
                 When(quantity__lte=20, then=Value("low_stock")),

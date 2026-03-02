@@ -14,23 +14,27 @@ class SupplierSerializer(serializers.ModelSerializer):
         model =Supplier
         fields="__all__"
 
+
 class ProductSerializer(serializers.ModelSerializer):
-    category = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all()
+
+    category = CategorySerializer(read_only=True)
+    supplier = SupplierSerializer(read_only=True)
+
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        source='category',
+        write_only=True
     )
-    supplier= serializers.PrimaryKeyRelatedField(
-        queryset=Supplier.objects.all()
+
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Supplier.objects.all(),
+        source='supplier',
+        write_only=True
     )
 
     class Meta:
         model = Product
         fields = "__all__"
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['category'] = CategorySerializer(instance.category).data
-        data['supplier'] = SupplierSerializer(instance.supplier).data
-        return data
 
 
 
