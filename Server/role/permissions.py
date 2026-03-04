@@ -31,14 +31,21 @@ class IsSameCompany(BasePermission):
 
 
 class CanCreateManager(BasePermission):
-    """Only admins can create managers"""
-    
+    """Only admins with permission can create managers"""
+
     def has_permission(self, request, view):
-        return (request.user and 
-                request.user.is_authenticated and 
-                request.user.role == 'admin' and
-                hasattr(request.user, 'admin_profile') and
-                request.user.admin_profile.can_create_managers)
+        user = request.user
+        print("User:", request.user)
+        print("User ID:", request.user.id)
+        print("Role:", getattr(request.user, 'role', None))
+        
+        if not user.is_authenticated:
+            return False
+        if user.role != 'admin':
+            return False
+        if not hasattr(user, 'admin_profile'):
+            return False
+        return user.admin_profile.can_create_managers
 
 
 class CanCreateStaff(BasePermission):

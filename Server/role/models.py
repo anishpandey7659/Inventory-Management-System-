@@ -9,6 +9,8 @@ import uuid
 
 class CustomUser(AbstractUser):
     username = None  # Remove username field
+    first_name=models.CharField(max_length=50)
+    last_name=models.CharField(max_length=50)
     email = models.EmailField(unique=True, db_index=True)
     
     ROLE_CHOICES = [

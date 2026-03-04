@@ -94,21 +94,21 @@ const rolePermissions = {
   };
 
   const handleCreateUser = async() => {
+    const roleValue = formData.role.split(" - ")[0];
     const newUser = {
       first_name: formData.first_name,
       last_name: formData.last_name,
       email: formData.email,
       phone: formData.phone,
-      // role: formData.role.split(' - ')[0],
       password:formData.password,
-
     };
+    console.log("Slolo: ",newUser);
+    console.log("Role: ",roleValue);
     console.log(formData.password);
     console.log(formData.confirmPassword);
     if (formData.password == formData.confirmPassword){
       console.log("correct password");
-      if (formData.role == 'Manager'){
-
+      if (roleValue== 'Manager'){
       try{
           const response =await create_manager(newUser);
           console.log("Sucessfully created : ",response.data);
