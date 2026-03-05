@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─────────────────────────────────────────────
 # SECURITY
 # ─────────────────────────────────────────────
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-temporary-default-key-123')
 
 # Set DEBUG=False in production via environment variable
 DEBUG = config('DEBUG', default='False') == 'True'
