@@ -1,0 +1,5 @@
+[phases.build]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python manage.py migrate_schemas --shared && python manage.py collectstatic --noinput && gunicorn core.wsgi"
