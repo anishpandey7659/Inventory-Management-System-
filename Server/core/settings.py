@@ -103,6 +103,9 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
+# Add this right after imports — temporary debug line
+print("DATABASE_URL VALUE:", os.environ.get('DATABASE_URL', 'NOT FOUND'))
+
 if DATABASE_URL:
     # ✅ Production: parse Railway's DATABASE_URL but keep django-tenants engine
     db_config = dj_database_url.parse(DATABASE_URL)
