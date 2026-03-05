@@ -10,4 +10,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path(r'^api/password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
 ]
