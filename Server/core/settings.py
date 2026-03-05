@@ -101,7 +101,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # DATABASE (supports both local & Railway)
 # ─────────────────────────────────────────────
 
-DATABASE_URL = config('DATABASE_URL', default=None)
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
     # ✅ Production: parse Railway's DATABASE_URL but keep django-tenants engine
