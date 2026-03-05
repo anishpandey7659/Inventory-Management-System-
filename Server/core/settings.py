@@ -66,6 +66,7 @@ INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in S
 # MIDDLEWARE
 # ─────────────────────────────────────────────
 MIDDLEWARE = [
+    'core.middleware.TenantFromHeaderMiddleware', 
     'django_tenants.middleware.main.TenantMainMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',      # ← NEW: serves static files
