@@ -2,7 +2,7 @@ import React, { useState ,useEffect} from 'react';
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Link } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
-import { userdetail } from '../../services/ApiService';
+import { userdetail } from '../../services/Apiservice';
 
 const Layout = ({ children }) => {
   const [activeItem, setActiveItem] = useState('Dashboard');

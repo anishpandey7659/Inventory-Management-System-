@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { usePost } from "../../hooks/UseHook";
-import { createSupplier , getCategories, getSuppliers } from "../../services/ApiService";
+import { createSupplier , getCategories, getSuppliers } from "../../services/Apiservice";
 
 
 export const CreateSupplierModal = ({ isOpen, onClose, onSave }) => {

@@ -2,7 +2,7 @@ import React, { useState,useEffect } from 'react';
 import { Search, Eye, Download, Printer, Plus, FileText, DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { Link } from "react-router-dom";
 import { useFetch } from "../hooks/UseHook";
-import { getsales,total_revenue,getProduct,getsalesId } from '../services/ApiService';
+import { getsales,total_revenue,getProduct,getsalesId } from '../services/Apiservice';
 
 const BillingHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');

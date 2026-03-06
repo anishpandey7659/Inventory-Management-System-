@@ -1,6 +1,5 @@
 import { usePost } from "../../hooks/UseHook";
-import { createCategory } from "../../services/ApiService";
-import { getCategories,getSuppliers } from "../../services/ApiService";
+import { createCategory,getCategories,getSuppliers } from "../../services/Apiservice";
 import { useState } from "react";
 
 

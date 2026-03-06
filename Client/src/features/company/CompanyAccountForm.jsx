@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { registercompany } from '../../services/ApiService';
+import { registercompany } from '../../services/Apiservice';
 import { data, useNavigate } from 'react-router-dom';
 
 export default function CompanyAccountForm() {

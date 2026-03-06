@@ -1,7 +1,7 @@
 import React, { useState,useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
-import { userdetail } from '../services/ApiService';
+import { userdetail } from '../services/Apiservice';
 import { User, Mail, Phone, MapPin, Building, Calendar, Camera, Save, Edit2 ,LogOut } from 'lucide-react';
 
 const ProfilePage = () => {

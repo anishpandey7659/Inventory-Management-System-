@@ -1,6 +1,6 @@
 import React, { useState,useEffect } from 'react';
 import { Download, Trash2, FileText, Plus, TrendingUp, TrendingDown, Package, ShoppingCart, Users } from 'lucide-react';
-import { getsales,total_revenue } from '../services/ApiService';
+import { getsales,total_revenue } from '../services/Apiservice';
 
 
 

@@ -1,5 +1,5 @@
 import AddProductModal from "../products/Addproduct";
-import { getProducts,createStockIn,getCategories,getSuppliers } from "../../services/ApiService";
+import { getProducts,createStockIn,getCategories,getSuppliers } from "../../services/Apiservice";
 import { useCategories,useSuppilier } from "../../hooks/UseHook";
 import { useFetch } from "../../hooks/UseHook";
 import { useState } from "react";

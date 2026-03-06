@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from '../context/Authprovider';
 import { Link } from 'react-router-dom';
-import { login } from '../services/ApiService';
+import { login } from '../services/Apiservice';
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

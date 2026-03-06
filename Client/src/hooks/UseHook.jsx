@@ -77,7 +77,7 @@ export const usePost = (apiFunc) => {
   return { loading, error, success, postData };
 };
 
-import { getCategories,getSuppliers } from "../services/ApiService";
+import { getCategories,getSuppliers } from "../services/Apiservice";
 
 export const useCategories = () => {
     const [categories, setCategories] = useState([]);

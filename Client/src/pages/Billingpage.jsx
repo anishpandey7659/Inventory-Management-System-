@@ -1,6 +1,6 @@
 import React, { useState,useEffect } from 'react';
 import { X, Plus, Minus, Search, ShoppingCart, FileText, Printer, Save,History} from 'lucide-react';
-import { getProducts,createsales } from '../services/ApiService';
+import {getProducts,createsales} from "../services/Apiservice";
 import { Link } from "react-router-dom";
 
 const BillingCreate = () => {

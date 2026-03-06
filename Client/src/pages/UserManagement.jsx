@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, Edit2, Ban, Plus, X, Info } from 'lucide-react';
-import { create_manager, create_staff,my_team,delete_user} from '../services/ApiService';
+import { create_manager, create_staff,my_team,delete_user} from '../services/Apiservice'
 
 const UserManagement = () => {
   const [teamData, setTeamData] = useState(null);

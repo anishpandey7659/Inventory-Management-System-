@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { createProduct,updateProduct,getCategories } from "../../services/ApiService";
+import { createProduct,updateProduct,getCategories } from "../../services/Apiservice";
 import { useCategories,useSuppilier } from "../../hooks/UseHook";
 
 import { CreateCategoryModal } from "./CreateCategory"

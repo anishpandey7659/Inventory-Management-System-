@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Phone, Mail, MapPin, Package, DollarSign, TrendingUp, Clock, Star, Edit2, Trash2, Eye, ShoppingCart, Calendar, FileText, Award, AlertCircle } from 'lucide-react';
 import { CreateSupplierModal } from '../products/CreateSupplier';
-import { getSuppliers } from '../../services/ApiService';
+import { getSuppliers } from '../../services/Apiservice';
 
 const SuppliersManagement = () => {
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
